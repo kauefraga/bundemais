@@ -43,3 +43,6 @@ package-lock.json
 
 # Secrets
 .env
+
+# Redis volume
+redis_data
