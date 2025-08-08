@@ -2,11 +2,9 @@ import cluster from 'cluster';
 import { Elysia, t } from 'elysia';
 import Redis from 'ioredis';
 import { availableParallelism } from 'os';
+import { env } from './env';
 
-const PP_DEFAULT_URL = process.env.PAYMENT_PROCESSOR_DEFAULT_URL!;
-const PP_FALLBACK_URL = process.env.PAYMENT_PROCESSOR_FALLBACK_URL!;
-
-const redis = new Redis(process.env.REDIS_URL!); // criar uma connection pool?
+const redis = new Redis(env.REDIS_URL); // criar uma connection pool?
 
 const paymentBody = t.Object({
   correlationId: t.String({ format: 'uuid' }),
@@ -66,7 +64,7 @@ if (cluster.isPrimary) {
 
       return payments;
     }, { query: summaryQuery })
-    .listen(3000);
+    .listen({ port: env.PORT, hostname: '0.0.0.0' });
 
   console.log(
     `:> running at ${app.server?.hostname}:${app.server?.port}`
@@ -95,7 +93,7 @@ if (cluster.isPrimary) {
     // caso pp default falhe, chama o fallback
     // caso pp fallback falhe, chama o default
     while (true) {
-      const response = await fetch(PP_DEFAULT_URL, {
+      const response = await fetch(env.PP_DEFAULT_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -109,7 +107,7 @@ if (cluster.isPrimary) {
         break;
       }
 
-      const fallbackResponse = await fetch(PP_FALLBACK_URL, {
+      const fallbackResponse = await fetch(env.PP_FALLBACK_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
