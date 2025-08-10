@@ -30,7 +30,7 @@ export async function startWorker(redis: Redis) {
         requestedAt: new Date()
       }
 
-      const response = await fetch(env.PP_DEFAULT_URL, {
+      const response = await fetch(`${env.PP_DEFAULT_URL}/payments`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -45,7 +45,7 @@ export async function startWorker(redis: Redis) {
         break;
       }
 
-      const fallbackResponse = await fetch(env.PP_FALLBACK_URL, {
+      const fallbackResponse = await fetch(`${env.PP_FALLBACK_URL}/payments`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
