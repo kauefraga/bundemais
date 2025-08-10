@@ -1,3 +1,4 @@
+import swagger from '@elysiajs/swagger';
 import { Elysia, t } from 'elysia';
 import Redis from 'ioredis';
 import { env } from './env';
@@ -15,6 +16,7 @@ const summaryQuery = t.Object({
 
 export function startServer(redis: Redis) {
   const app = new Elysia()
+    .use(swagger())
     .post('/payments', async ({ body }) => {
       if (body.amount === 0) {
         return // descarta rápido
