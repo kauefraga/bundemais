@@ -8,7 +8,7 @@ import { startWorker } from './worker';
 const redis = new Redis(env.REDIS_URL); // criar uma connection pool?
 
 if (cluster.isPrimary) {
-  const numCPUs = availableParallelism() / 2;
+  const numCPUs = availableParallelism();
   for (let i = 0; i < numCPUs; i++) {
     cluster.fork();
   }

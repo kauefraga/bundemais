@@ -27,7 +27,7 @@ export async function startWorker(redis: Redis) {
       const paymentPayload: PaymentPayload = {
         correlationId,
         amount: parseFloat(amount),
-        requestedAt: new Date()
+        requestedAt: new Date(),
       }
 
       const response = await fetch(`${env.PP_DEFAULT_URL}/payments`, {
@@ -39,32 +39,33 @@ export async function startWorker(redis: Redis) {
       });
 
       if (response.ok) {
-        console.log(':> pagamento no default :)');
         await redis.lrem('processing_queue', 1, payment);
         await redis.hset(hash, { ...paymentPayload, processor: 'default' });
         break;
       }
+
+      const now = new Date();
 
       const fallbackResponse = await fetch(`${env.PP_FALLBACK_URL}/payments`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(paymentPayload),
+        body: JSON.stringify({
+          ...paymentPayload,
+          requestedAt: now,
+        }),
       });
 
       if (fallbackResponse.ok) {
-        console.log(':> pagamento no fallback');
         await redis.lrem('processing_queue', 1, payment);
-        await redis.hset(hash, { ...paymentPayload, processor: 'fallback' });
+        await redis.hset(hash, { ...paymentPayload, requestedAt: now, processor: 'fallback' });
         break;
       }
 
-      await new Promise(resolve => setTimeout(resolve, 50)); // 50 ms
+      // await new Promise(resolve => setTimeout(resolve, 10));
     }
 
     await redis.sadd('payments_hashes', hash);
-
-    console.log(':> pagamento salvo no banco de dados');
   }
 }

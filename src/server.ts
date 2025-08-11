@@ -43,8 +43,6 @@ export function startServer(redis: Redis) {
 
         const [correlationId, amount, requestedAt, processor] = payment as string[];
 
-        console.log(amount, requestedAt, processor)
-
         payments.push({
           correlationId,
           amount: parseFloat(amount),
