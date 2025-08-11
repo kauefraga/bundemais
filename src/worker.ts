@@ -27,7 +27,7 @@ export async function startWorker(redis: Redis) {
       const paymentPayload: PaymentPayload = {
         correlationId,
         amount: parseFloat(amount),
-        requestedAt: new Date(),
+        requestedAt: new Date().toISOString(),
       }
 
       const response = await fetch(`${env.PP_DEFAULT_URL}/payments`, {
@@ -44,7 +44,7 @@ export async function startWorker(redis: Redis) {
         break;
       }
 
-      const now = new Date();
+      const now = new Date().toISOString();
 
       const fallbackResponse = await fetch(`${env.PP_FALLBACK_URL}/payments`, {
         method: 'POST',
@@ -63,7 +63,7 @@ export async function startWorker(redis: Redis) {
         break;
       }
 
-      // await new Promise(resolve => setTimeout(resolve, 10));
+      await new Promise(resolve => setTimeout(resolve, 30));
     }
 
     await redis.sadd('payments_hashes', hash);

@@ -46,7 +46,7 @@ export function startServer(redis: Redis) {
         payments.push({
           correlationId,
           amount: parseFloat(amount),
-          requestedAt: new Date(requestedAt),
+          requestedAt,
           processor: processor as 'default' | 'fallback',
         });
       }
@@ -56,13 +56,13 @@ export function startServer(redis: Redis) {
         const to = query.to ? new Date(query.to) : new Date();
 
         const paymentsWithDefault = payments.filter(payment =>
-          payment.requestedAt >= from
-          && payment.requestedAt <= to
+          new Date(payment.requestedAt) >= from
+          && new Date(payment.requestedAt) <= to
           && payment.processor === 'default'
         );
         const paymentsWithFallback = payments.filter(payment =>
-          payment.requestedAt >= from
-          && payment.requestedAt <= to
+          new Date(payment.requestedAt) >= from
+          && new Date(payment.requestedAt) <= to
           && payment.processor === 'fallback'
         );
 

@@ -3,7 +3,7 @@ import { t } from 'elysia';
 export const PaymentSchema = t.Object({
   correlationId: t.String({ format: 'uuid' }),
   amount: t.Number(),
-  requestedAt: t.Date(),
+  requestedAt: t.String(),
   processor: t.Union([
     t.Literal('default'),
     t.Literal('fallback'),
