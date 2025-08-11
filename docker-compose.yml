@@ -33,7 +33,7 @@ services:
       resources:
         limits:
           cpus: "0.2"
-          memory: "60MB"
+          memory: "50MB"
 
   api01: &api
     image: ghcr.io/kauefraga/bundemais:latest
@@ -52,7 +52,7 @@ services:
       resources:
         limits:
           cpus: "0.55"
-          memory: "120MB"
+          memory: "125MB"
   api02:
     <<: *api
     hostname: api02
