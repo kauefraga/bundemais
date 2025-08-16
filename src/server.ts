@@ -3,6 +3,7 @@ import { Elysia, t } from 'elysia';
 import Redis from 'ioredis';
 import { env } from './env';
 import { Payment } from './schemas';
+import { retryWithDelay } from './utils';
 
 const paymentBody = t.Object({
   correlationId: t.String({ format: 'uuid' }),
@@ -24,8 +25,14 @@ export function startServer(redis: Redis) {
 
       const { correlationId, amount } = body;
 
-      // await redis.lpush('payments_queue', `${crypto.randomUUID()}:${Math.random() * 50}`);
-      await redis.lpush('payments_queue', `${correlationId}:${amount}`);
+      const ok = await retryWithDelay(async () => {
+        // await redis.lpush('payments_queue', `${crypto.randomUUID()}:${Math.random() * 50}`);
+        await redis.lpush('payments_queue', `${correlationId}:${amount}`);
+      }, { attempts: 5, delay: 500 });
+
+      if (!ok) {
+        return { error: 'Failed to process payment' };
+      }
 
       return
     }, { body: paymentBody })
