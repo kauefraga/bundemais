@@ -15,7 +15,7 @@ services:
       resources:
         limits:
           cpus: "0.2"
-          memory: "50MB"
+          memory: "70MB"
 
   nginx:
     image: nginx:alpine
@@ -33,7 +33,7 @@ services:
       resources:
         limits:
           cpus: "0.2"
-          memory: "50MB"
+          memory: "40MB"
 
   api01: &api
     image: ghcr.io/kauefraga/bundemais:latest
@@ -52,7 +52,7 @@ services:
       resources:
         limits:
           cpus: "0.55"
-          memory: "125MB"
+          memory: "120MB"
   api02:
     <<: *api
     hostname: api02
