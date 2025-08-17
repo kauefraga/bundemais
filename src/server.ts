@@ -25,7 +25,14 @@ export function startServer(redis: Redis) {
 
       const { correlationId, amount } = body;
 
-      const isPaymentRegistered = await redis.exists(`payments:${correlationId}`);
+      const isPaymentEnqueued = await redis.exists(`payments:${correlationId}`);
+
+      // Status 200 com erro :)
+      if (isPaymentEnqueued) {
+        return { error: 'duplicado' };
+      }
+
+      const isPaymentRegistered = await redis.sismember('payments_hashes', `payments:${correlationId}`);
 
       // Status 200 com erro :)
       if (isPaymentRegistered) {
@@ -33,7 +40,7 @@ export function startServer(redis: Redis) {
       }
 
       const ok = await retryWithDelay(async () => {
-        // await redis.lpush('payments_queue', `${crypto.randomUUID()}:${Math.random() * 50}`);
+        // await redis.lpush('payments_queue', `${crypto.randomUUID()}:1`);
         await redis.lpush('payments_queue', `${correlationId}:${amount}`);
       }, { attempts: 5, delay: 500 });
 
