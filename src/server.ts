@@ -25,13 +25,22 @@ export function startServer(redis: Redis) {
 
       const { correlationId, amount } = body;
 
+      const isPaymentRegistered = await redis.exists(`payments:${correlationId}`);
+
+      // Status 200 com erro :)
+      if (isPaymentRegistered) {
+        return { error: 'duplicado' };
+      }
+
       const ok = await retryWithDelay(async () => {
         // await redis.lpush('payments_queue', `${crypto.randomUUID()}:${Math.random() * 50}`);
         await redis.lpush('payments_queue', `${correlationId}:${amount}`);
       }, { attempts: 5, delay: 500 });
 
+
+      // Status 200 com erro :)
       if (!ok) {
-        return { error: 'Failed to process payment' };
+        return { error: 'não rolou nem com retry' };
       }
 
       return
@@ -39,65 +48,49 @@ export function startServer(redis: Redis) {
     .get('/payments-summary', async ({ query }) => {
       const payments_hashes = await redis.smembers('payments_hashes');
 
-      const payments: Payment[] = [];
-
-      for (const payment_hash of payments_hashes) {
-        const payment = await redis.hmget(payment_hash, 'correlationId', 'amount', 'requestedAt', 'processor');
-
-        if (!payment) {
-          continue;
-        }
-
-        const [correlationId, amount, requestedAt, processor] = payment as string[];
-
-        payments.push({
-          correlationId,
-          amount: parseFloat(amount),
-          requestedAt,
-          processor: processor as 'default' | 'fallback',
-        });
-      }
-
-      if (query.to || query.from) {
-        const from = query.from ? new Date(query.from) : new Date(0);
-        const to = query.to ? new Date(query.to) : new Date();
-
-        const paymentsWithDefault = payments.filter(payment =>
-          new Date(payment.requestedAt) >= from
-          && new Date(payment.requestedAt) <= to
-          && payment.processor === 'default'
-        );
-        const paymentsWithFallback = payments.filter(payment =>
-          new Date(payment.requestedAt) >= from
-          && new Date(payment.requestedAt) <= to
-          && payment.processor === 'fallback'
-        );
-
-        let defaultTotalAmount = 0;
-        let fallbackTotalAmount = 0;
-
-        for (const p of paymentsWithDefault) {
-          defaultTotalAmount += p.amount;
-        }
-
-        for (const p of paymentsWithFallback) {
-          fallbackTotalAmount += p.amount;
-        }
-
+      if (!payments_hashes) {
         return {
           default: {
-            totalRequests: paymentsWithDefault.length,
-            totalAmount: defaultTotalAmount
+            totalRequests: 0,
+            totalAmount: 0
           },
           fallback: {
-            totalRequests: paymentsWithFallback.length,
-            totalAmount: fallbackTotalAmount
+            totalRequests: 0,
+            totalAmount: 0
           }
         }
       }
 
-      const paymentsWithDefault = payments.filter(payment => payment.processor === 'default');
-      const paymentsWithFallback = payments.filter(payment => payment.processor === 'fallback');
+      const rawPayments = await Promise.allSettled(payments_hashes.map(ph => redis.hmget(ph, 'correlationId', 'amount', 'requestedAt', 'processor')));
+
+      if (!rawPayments) {
+        return;
+      }
+
+      const payments: Payment[] = rawPayments.filter(p => p.status === 'fulfilled').map(p => {
+        const [correlationId, amount, requestedAt, processor] = p.value as string[];
+
+        return {
+          correlationId,
+          amount: parseFloat(amount),
+          requestedAt,
+          processor: processor as 'default' | 'fallback',
+        }
+      });
+
+      const from = query.from ? new Date(query.from) : new Date(0);
+      const to = query.to ? new Date(query.to) : new Date();
+
+      const paymentsWithDefault = payments.filter(payment =>
+        new Date(payment.requestedAt) >= from
+        && new Date(payment.requestedAt) <= to
+        && payment.processor === 'default'
+      );
+      const paymentsWithFallback = payments.filter(payment =>
+        new Date(payment.requestedAt) >= from
+        && new Date(payment.requestedAt) <= to
+        && payment.processor === 'fallback'
+      );
 
       let defaultTotalAmount = 0;
       let fallbackTotalAmount = 0;
@@ -113,11 +106,11 @@ export function startServer(redis: Redis) {
       return {
         default: {
           totalRequests: paymentsWithDefault.length,
-          totalAmount: defaultTotalAmount
+          totalAmount: defaultTotalAmount,
         },
         fallback: {
           totalRequests: paymentsWithFallback.length,
-          totalAmount: fallbackTotalAmount
+          totalAmount: fallbackTotalAmount,
         }
       }
     }, { query: summaryQuery })

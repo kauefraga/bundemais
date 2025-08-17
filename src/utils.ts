@@ -11,7 +11,6 @@ export async function retryWithDelay<T extends Function>(callback: T, options: R
       return true;
     } catch {
       await new Promise(resolve => setTimeout(resolve, options.delay));
-      continue;
     }
   }
 
