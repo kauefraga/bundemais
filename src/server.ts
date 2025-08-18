@@ -18,6 +18,10 @@ const summaryQuery = t.Object({
 export function startServer(redis: Redis) {
   const app = new Elysia()
     .use(swagger())
+    .onError(({ set }) => {
+      set.status = 500;
+      return 'Internal Server Error';
+    })
     .post('/payments', async ({ body }) => {
       if (body.amount === 0) {
         return // descarta rápido
@@ -25,33 +29,23 @@ export function startServer(redis: Redis) {
 
       const { correlationId, amount } = body;
 
-      const isPaymentEnqueued = await redis.exists(`payments:${correlationId}`);
-
-      // Status 200 com erro :)
-      if (isPaymentEnqueued) {
-        return { error: 'duplicado' };
-      }
-
-      const isPaymentRegistered = await redis.sismember('payments_hashes', `payments:${correlationId}`);
-
-      // Status 200 com erro :)
-      if (isPaymentRegistered) {
-        return { error: 'duplicado' };
-      }
-
       const ok = await retryWithDelay(async () => {
         // await redis.lpush('payments_queue', `${crypto.randomUUID()}:1`);
         await redis.lpush('payments_queue', `${correlationId}:${amount}`);
       }, { attempts: 5, delay: 500 });
 
 
-      // Status 200 com erro :)
       if (!ok) {
-        return { error: 'não rolou nem com retry' };
+        throw new Error('Failed to enqueue payment');
       }
 
       return
-    }, { body: paymentBody })
+    }, {
+      body: paymentBody,
+      afterHandle: ({ set }) => {
+        set.status = 202;
+      }
+    })
     .get('/payments-summary', async ({ query }) => {
       const payments_hashes = await redis.smembers('payments_hashes');
 

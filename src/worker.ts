@@ -51,28 +51,24 @@ export async function startWorker(redis: Redis) {
         await redis.lrem('processing_queue', 1, payment);
         await redis.hset(hash, { ...paymentPayload, processor: 'default' });
       }
-    }, { attempts: 3, delay: 1000 });
 
-    // se não der devolve para fila
-    if (!ok) {
-      const fallbackOk = await retryWithDelay(async () => {
-        const fallbackResponse = await fetch(`${env.PP_FALLBACK_URL}/payments`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(paymentPayload),
-        });
+      const fallbackResponse = await fetch(`${env.PP_FALLBACK_URL}/payments`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(paymentPayload),
+      });
 
-        if (fallbackResponse.ok) {
-          await redis.lrem('processing_queue', 1, payment);
-          await redis.hset(hash, { ...paymentPayload, processor: 'fallback' });
-        }
-      }, { attempts: 3, delay: 1000 });
-
-      if (!fallbackOk) {
-        continue;
+      if (fallbackResponse.ok) {
+        await redis.lrem('processing_queue', 1, payment);
+        await redis.hset(hash, { ...paymentPayload, processor: 'fallback' });
       }
+    }, { attempts: 3, delay: 500 });
+
+    if (!ok) {
+      await redis.lrem('processing_queue', 1, payment);
+      await redis.lpush('payments_queue', payment);
     }
 
     await redis.sadd('payments_hashes', hash);
